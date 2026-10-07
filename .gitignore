@@ -116,3 +116,5 @@ tmp/
 agent-responses/
 data/
 local/
+
+prompt.md

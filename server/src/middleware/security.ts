@@ -47,3 +47,22 @@ export const rateLimiterMiddleware: RequestHandler = rateLimit({
   },
   skip: () => env.NODE_ENV === 'test', // Skip rate limiting during automated tests
 });
+
+/**
+ * Stricter rate limiter specifically protecting authentication endpoints
+ * (login, password reset) from brute-force attacks.
+ */
+export const authRateLimiterMiddleware: RequestHandler = rateLimit({
+  windowMs: env.AUTH_RATE_LIMIT_WINDOW_MS,
+  max: env.AUTH_RATE_LIMIT_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: {
+      code: 'AUTH_RATE_LIMIT_EXCEEDED',
+      message: 'Too many authentication attempts. Please try again in 15 minutes.',
+    },
+  },
+  skip: () => env.NODE_ENV === 'test', // Skip during automated tests
+});

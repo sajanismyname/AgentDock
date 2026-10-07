@@ -34,6 +34,14 @@ const envSchema = z.object({
   // Rate Limiting
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
   RATE_LIMIT_MAX: z.coerce.number().default(100),
+
+  // Authentication & JWT
+  JWT_ACCESS_SECRET: z.string().min(16).default('agentdock-dev-jwt-access-secret-32-chars-min'),
+  JWT_REFRESH_SECRET: z.string().min(16).default('agentdock-dev-jwt-refresh-secret-32-chars-min'),
+  JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
+  JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
+  AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().default(10),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
@@ -69,5 +77,11 @@ export function getSanitizedConfig(): Record<string, unknown> {
     REDIS_DB: env.REDIS_DB,
     RATE_LIMIT_WINDOW_MS: env.RATE_LIMIT_WINDOW_MS,
     RATE_LIMIT_MAX: env.RATE_LIMIT_MAX,
+    JWT_ACCESS_SECRET: '********',
+    JWT_REFRESH_SECRET: '********',
+    JWT_ACCESS_EXPIRES_IN: env.JWT_ACCESS_EXPIRES_IN,
+    JWT_REFRESH_EXPIRES_IN: env.JWT_REFRESH_EXPIRES_IN,
+    AUTH_RATE_LIMIT_WINDOW_MS: env.AUTH_RATE_LIMIT_WINDOW_MS,
+    AUTH_RATE_LIMIT_MAX: env.AUTH_RATE_LIMIT_MAX,
   };
 }
