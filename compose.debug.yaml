@@ -1,0 +1,6 @@
+services:
+  agentdock:
+    image: agentdock
+    build:
+      context: .
+      dockerfile: ./Dockerfile
