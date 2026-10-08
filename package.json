@@ -10,6 +10,8 @@
     "build:server": "npm run build --workspace=server",
     "build:client": "npm run build --workspace=client",
     "build": "npm run build:server && npm run build:client",
+    "start": "npm run start --workspace=server",
+    "worker": "npm run worker --workspace=server",
     "test": "npm run test --workspace=server",
     "migration:run": "npm run migration:run --workspace=server"
   }
