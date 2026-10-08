@@ -53,7 +53,7 @@ export interface TestCase {
 }
 
 export type SuiteType = 'all' | 'regression';
-export type RunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'timeout';
+export type RunStatus = 'pending' | 'queued' | 'running' | 'completed' | 'failed' | 'timeout';
 
 export interface TestRun {
   id: string;

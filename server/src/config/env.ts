@@ -5,6 +5,20 @@ import { z } from 'zod';
 // Load .env file from server root or process working directory
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
+const KNOWN_PLACEHOLDERS = new Set([
+  'agentdock-dev-jwt-access-secret-32-chars-min',
+  'agentdock-dev-jwt-refresh-secret-32-chars-min',
+  'agentdock-dev-encryption-key-32b-secret-min',
+  'changeme',
+  'secret',
+  'password',
+  'placeholder',
+  'your-secret-key-here',
+  '12345678901234567890123456789012',
+  '00000000000000000000000000000000',
+  'abcdefghijklmnopqrstuvwxyz123456',
+]);
+
 const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -36,8 +50,14 @@ const envSchema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().default(100),
 
   // Authentication & JWT
-  JWT_ACCESS_SECRET: z.string().min(16).default('agentdock-dev-jwt-access-secret-32-chars-min'),
-  JWT_REFRESH_SECRET: z.string().min(16).default('agentdock-dev-jwt-refresh-secret-32-chars-min'),
+  JWT_ACCESS_SECRET: z
+    .string()
+    .min(16)
+    .default('agentdock-dev-jwt-access-secret-32-chars-min'),
+  JWT_REFRESH_SECRET: z
+    .string()
+    .min(16)
+    .default('agentdock-dev-jwt-refresh-secret-32-chars-min'),
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
   AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
@@ -46,13 +66,20 @@ const envSchema = z.object({
   // Agent Credential Encryption (AES-256-GCM, 32 bytes)
   AGENT_ENCRYPTION_KEY: z
     .string()
-    .min(32)
+    .min(16)
     .default('agentdock-dev-encryption-key-32b-secret-min'),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
 
-const parsed = envSchema.safeParse(process.env);
+const rawEncryptionKey = process.env.ENCRYPTION_KEY || process.env.AGENT_ENCRYPTION_KEY;
+const rawJwtSecret = process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET;
+
+const parsed = envSchema.safeParse({
+  ...process.env,
+  ...(rawEncryptionKey ? { AGENT_ENCRYPTION_KEY: rawEncryptionKey } : {}),
+  ...(rawJwtSecret ? { JWT_ACCESS_SECRET: rawJwtSecret } : {}),
+});
 
 if (!parsed.success) {
   // Never log raw process.env
@@ -61,6 +88,57 @@ if (!parsed.success) {
 }
 
 export const env: EnvConfig = parsed.data;
+
+/**
+ * Validates secrets in production mode. Fails with descriptive configuration errors
+ * without leaking secret values or partial strings.
+ */
+export function validateProductionSecrets(config: EnvConfig = env): void {
+  if (config.NODE_ENV !== 'production') {
+    return;
+  }
+
+  // 1. Validate AGENT_ENCRYPTION_KEY
+  const encryptionKey = config.AGENT_ENCRYPTION_KEY;
+  if (!encryptionKey || encryptionKey.trim().length === 0) {
+    throw new Error('Production Configuration Error: ENCRYPTION_KEY environment variable is required.');
+  }
+  if (KNOWN_PLACEHOLDERS.has(encryptionKey.toLowerCase())) {
+    throw new Error('Production Configuration Error: ENCRYPTION_KEY cannot use default or placeholder values.');
+  }
+  if (encryptionKey.length < 32) {
+    throw new Error('Production Configuration Error: ENCRYPTION_KEY must have at least 32 characters (256 bits).');
+  }
+
+  // 2. Validate JWT_ACCESS_SECRET
+  const jwtAccessSecret = config.JWT_ACCESS_SECRET;
+  if (!jwtAccessSecret || jwtAccessSecret.trim().length === 0) {
+    throw new Error('Production Configuration Error: JWT_SECRET environment variable is required.');
+  }
+  if (KNOWN_PLACEHOLDERS.has(jwtAccessSecret.toLowerCase())) {
+    throw new Error('Production Configuration Error: JWT_ACCESS_SECRET cannot use default or placeholder values.');
+  }
+  if (jwtAccessSecret.length < 32) {
+    throw new Error('Production Configuration Error: JWT_ACCESS_SECRET must have at least 32 characters of entropy.');
+  }
+
+  // 3. Validate JWT_REFRESH_SECRET
+  const jwtRefreshSecret = config.JWT_REFRESH_SECRET;
+  if (!jwtRefreshSecret || jwtRefreshSecret.trim().length === 0) {
+    throw new Error('Production Configuration Error: JWT_REFRESH_SECRET environment variable is required.');
+  }
+  if (KNOWN_PLACEHOLDERS.has(jwtRefreshSecret.toLowerCase())) {
+    throw new Error('Production Configuration Error: JWT_REFRESH_SECRET cannot use default or placeholder values.');
+  }
+  if (jwtRefreshSecret.length < 32) {
+    throw new Error('Production Configuration Error: JWT_REFRESH_SECRET must have at least 32 characters of entropy.');
+  }
+}
+
+// Automatically enforce production validations if started in production mode
+if (env.NODE_ENV === 'production') {
+  validateProductionSecrets(env);
+}
 
 /**
  * Returns a sanitized copy of configuration with secrets masked for safe logging/inspection.

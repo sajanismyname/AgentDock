@@ -14,7 +14,7 @@ import { User } from './User';
 import { TestResult } from './TestResult';
 
 export type SuiteType = 'all' | 'regression';
-export type RunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'timeout';
+export type RunStatus = 'pending' | 'queued' | 'running' | 'completed' | 'failed' | 'timeout';
 
 export interface TestRunResponseDto {
   id: string;
@@ -63,8 +63,8 @@ export class TestRun {
 
   @Column({
     type: 'enum',
-    enum: ['queued', 'running', 'completed', 'failed', 'timeout'],
-    default: 'queued',
+    enum: ['pending', 'queued', 'running', 'completed', 'failed', 'timeout'],
+    default: 'pending',
   })
   status!: RunStatus;
 

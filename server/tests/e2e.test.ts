@@ -168,15 +168,30 @@ describe('CHECKPOINT 4 — Complete End-to-End MVP Journey', () => {
       .set('Authorization', `Bearer ${userToken}`)
       .send({ suite: 'all' });
 
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(202);
     expect(res.body.success).toBe(true);
     expect(res.body.data.run.id).toBeDefined();
-    expect(res.body.data.run.status).toBe('completed');
-    expect(res.body.data.run.totalTests).toBe(5);
-    expect(res.body.data.run.score).toBeDefined();
-    expect(res.body.data.run.passedTests + res.body.data.run.failedTests).toBe(5);
+    expect(['pending', 'running', 'completed']).toContain(res.body.data.run.status);
 
     testRunId = res.body.data.run.id;
+
+    // Poll until background execution finishes
+    let detailRes;
+    const start = Date.now();
+    while (Date.now() - start < 10000) {
+      detailRes = await request(app)
+        .get(`/api/runs/${testRunId}`)
+        .set('Authorization', `Bearer ${userToken}`);
+      if (detailRes.body?.data?.run?.status === 'completed') {
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
+    expect(detailRes!.body.data.run.status).toBe('completed');
+    expect(detailRes!.body.data.run.totalTests).toBe(5);
+    expect(detailRes!.body.data.run.score).toBeDefined();
+    expect(detailRes!.body.data.run.passedTests + detailRes!.body.data.run.failedTests).toBe(5);
   });
 
   // Step 12: Dashboard / Run inspection
@@ -232,18 +247,28 @@ describe('CHECKPOINT 4 — Complete End-to-End MVP Journey', () => {
       .set('Authorization', `Bearer ${userToken}`)
       .send({ suite: 'regression' });
 
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(202);
     expect(res.body.data.run.suiteType).toBe('regression');
-    expect(res.body.data.run.totalTests).toBe(1);
+
     regressionRunId = res.body.data.run.id;
 
-    // Verify results of regression run
-    const regDetail = await request(app)
-      .get(`/api/runs/${regressionRunId}`)
-      .set('Authorization', `Bearer ${userToken}`);
+    // Poll until regression run completes
+    let regDetail;
+    const start = Date.now();
+    while (Date.now() - start < 10000) {
+      regDetail = await request(app)
+        .get(`/api/runs/${regressionRunId}`)
+        .set('Authorization', `Bearer ${userToken}`);
+      if (regDetail.body?.data?.run?.status === 'completed') {
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
 
-    expect(regDetail.body.data.run.results.length).toBe(1);
-    expect(regDetail.body.data.run.results[0].testCaseId).toBe(failedResultTestCaseId);
+    expect(regDetail!.body.data.run.status).toBe('completed');
+    expect(regDetail!.body.data.run.totalTests).toBe(1);
+    expect(regDetail!.body.data.run.results.length).toBe(1);
+    expect(regDetail!.body.data.run.results[0].testCaseId).toBe(failedResultTestCaseId);
   });
 
   // Step 17: Delete Agent and data

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TestRun, TestResult } from '../types';
 import { api } from '../services/api';
 import { FailureCard } from '../components/FailureCard';
-import { ArrowLeft, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 interface RunDetailPageProps {
   runId: string;
@@ -14,23 +14,48 @@ export const RunDetailPage: React.FC<RunDetailPageProps> = ({ runId, onNavigate 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'failed' | 'passed'>('all');
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchRun = async () => {
+  const fetchRun = async (isInitial = false) => {
     try {
-      setLoading(true);
+      if (isInitial) setLoading(true);
       setError(null);
       const res = await api.runs.getById(runId);
       setRun(res.run);
+
+      // If run reached terminal state, stop polling
+      if (res.run.status === 'completed' || res.run.status === 'failed') {
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+      }
     } catch (err: unknown) {
       const e = err as Error;
       setError(e.message || 'Failed to load test run details');
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchRun();
+    fetchRun(true);
+
+    // Set up polling interval to check run progress
+    pollingRef.current = setInterval(() => {
+      fetchRun(false);
+    }, 1500);
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
   }, [runId]);
 
   const handleSaveRegression = async (testCaseId: string) => {
@@ -39,8 +64,9 @@ export const RunDetailPage: React.FC<RunDetailPageProps> = ({ runId, onNavigate 
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20 text-slate-500 font-mono text-xs">
-        Loading test results...
+      <div className="flex flex-col items-center justify-center py-24 space-y-3 text-slate-400 font-mono text-xs">
+        <Loader2 className="w-6 h-6 animate-spin text-sky-400" />
+        <span>Loading test results...</span>
       </div>
     );
   }
@@ -56,6 +82,7 @@ export const RunDetailPage: React.FC<RunDetailPageProps> = ({ runId, onNavigate 
     );
   }
 
+  const isPendingOrRunning = run.status === 'pending' || run.status === 'running' || run.status === 'queued';
   const results = run.results || [];
   const filteredResults = results.filter((r) => {
     if (filter === 'failed') return r.status !== 'PASS';
@@ -79,6 +106,35 @@ export const RunDetailPage: React.FC<RunDetailPageProps> = ({ runId, onNavigate 
         <span>Back to Agent</span>
       </button>
 
+      {/* Pending / Running Async Progress Indicator */}
+      {isPendingOrRunning && (
+        <div className="bg-sky-500/10 border border-sky-500/30 rounded-2xl p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center space-x-4">
+            <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center text-sky-400 shrink-0">
+              <Loader2 className="w-5 h-5 animate-spin" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <h2 className="text-base font-bold text-white tracking-tight">
+                  {run.status === 'pending' || run.status === 'queued'
+                    ? 'Test Run Queued'
+                    : 'Executing Remote Tests...'}
+                </h2>
+                <span className="text-[11px] px-2 py-0.5 rounded font-mono uppercase bg-sky-500/20 text-sky-300 border border-sky-500/30 animate-pulse">
+                  {run.status}
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Valkey background worker is securely dispatching tests to the agent endpoint.
+              </p>
+            </div>
+          </div>
+          <div className="text-xs font-mono text-slate-400 bg-slate-950/60 px-3 py-1.5 rounded-lg border border-slate-800">
+            Auto-polling status every 1.5s
+          </div>
+        </div>
+      )}
+
       {/* Run Summary Card */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-800/80">
@@ -88,9 +144,21 @@ export const RunDetailPage: React.FC<RunDetailPageProps> = ({ runId, onNavigate 
               <span className="text-xs px-2 py-0.5 rounded font-mono uppercase bg-slate-800 text-slate-300 border border-slate-700">
                 {run.suiteType} suite
               </span>
+              <span
+                className={`text-xs px-2 py-0.5 rounded font-mono uppercase border ${
+                  run.status === 'completed'
+                    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                    : run.status === 'failed'
+                    ? 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+                    : 'bg-sky-500/10 text-sky-300 border-sky-500/30'
+                }`}
+              >
+                {run.status}
+              </span>
             </div>
             <p className="text-xs text-slate-400 font-mono mt-1">
-              Executed {new Date(run.createdAt).toLocaleString()}
+              Started {new Date(run.createdAt).toLocaleString()}
+              {run.completedAt && ` • Completed ${new Date(run.completedAt).toLocaleTimeString()}`}
             </p>
           </div>
 
@@ -101,14 +169,16 @@ export const RunDetailPage: React.FC<RunDetailPageProps> = ({ runId, onNavigate 
               </span>
               <span
                 className={`text-2xl font-bold font-mono ${
-                  scorePercent >= 80
+                  run.status !== 'completed'
+                    ? 'text-slate-400'
+                    : scorePercent >= 80
                     ? 'text-emerald-400'
                     : scorePercent >= 50
                     ? 'text-amber-400'
                     : 'text-rose-400'
                 }`}
               >
-                {scorePercent}%
+                {run.status === 'completed' && run.score !== null ? `${run.score}%` : '--'}
               </span>
             </div>
 
@@ -189,7 +259,9 @@ export const RunDetailPage: React.FC<RunDetailPageProps> = ({ runId, onNavigate 
       <div className="space-y-4">
         {filteredResults.length === 0 ? (
           <div className="border border-dashed border-slate-800 rounded-xl p-8 text-center text-slate-400 text-xs">
-            No test results match this filter.
+            {isPendingOrRunning
+              ? 'Results will appear once tests complete execution...'
+              : 'No test results match this filter.'}
           </div>
         ) : (
           filteredResults.map((result) => (

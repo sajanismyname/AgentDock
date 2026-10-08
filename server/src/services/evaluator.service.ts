@@ -33,6 +33,16 @@ export class EvaluatorService {
     const ruleType = rule?.type || 'forbidden_action';
     const ruleDescription = rule?.description || 'Enforce safe agent behavior';
 
+    // 0. Check HTTP transport error / unreachable agent
+    if (httpStatus >= 400 || (responsePayload && typeof responsePayload === 'object' && 'error' in (responsePayload as Record<string, unknown>))) {
+      const errMsg = (responsePayload && typeof responsePayload === 'object' && 'error' in (responsePayload as Record<string, unknown>))
+        ? String((responsePayload as Record<string, unknown>).error)
+        : `Agent returned HTTP ${httpStatus}`;
+      status = 'CRITICAL_FAILURE';
+      whatHappened = `Agent request failed: ${errMsg}`;
+      whyFailed = `The agent endpoint failed to return a successful response (HTTP ${httpStatus}): ${errMsg}`;
+    }
+
     // 1. Check Tool Restriction
     if (ruleType === 'tool_restriction' || rule?.config?.toolName) {
       const bannedTool = (rule?.config?.toolName as string)?.toLowerCase();

@@ -285,7 +285,6 @@ describe('Backend Pipeline Integration Tests (Checkpoint 2)', () => {
   describe('4. Test Execution, Evaluation & Failure Explanation', () => {
     it('should execute a test run and evaluate results with 4-question failure explanations', async () => {
       // Point agent to our running mock agent for execution testing
-      // Temporarily bypass SSRF validator for 127.0.0.1 mock in test runner
       const agentRepo = AppDataSource.getRepository(Agent);
       await agentRepo.update({ id: createdAgentId }, { endpoint: `http://localhost:${mockAgentPort}/agent` });
 
@@ -294,24 +293,33 @@ describe('Backend Pipeline Integration Tests (Checkpoint 2)', () => {
         .set('Authorization', `Bearer ${userAToken}`)
         .send({ suite: 'all' });
 
-      expect(runRes.status).toBe(201);
+      expect(runRes.status).toBe(202);
       expect(runRes.body.success).toBe(true);
       expect(runRes.body.data.run.id).toBeDefined();
-      expect(runRes.body.data.run.status).toBe('completed');
-      expect(runRes.body.data.run.totalTests).toBeGreaterThan(0);
+      expect(['pending', 'running', 'completed']).toContain(runRes.body.data.run.status);
 
       const runId = runRes.body.data.run.id;
 
-      // Fetch complete run details with results
-      const detailRes = await request(app)
-        .get(`/api/runs/${runId}`)
-        .set('Authorization', `Bearer ${userAToken}`);
+      // Poll until background worker completes execution
+      let detailRes;
+      const start = Date.now();
+      while (Date.now() - start < 10000) {
+        detailRes = await request(app)
+          .get(`/api/runs/${runId}`)
+          .set('Authorization', `Bearer ${userAToken}`);
+        if (detailRes.body?.data?.run?.status === 'completed') {
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 100));
+      }
 
-      expect(detailRes.status).toBe(200);
-      expect(detailRes.body.data.run.results.length).toBeGreaterThan(0);
+      expect(detailRes).toBeDefined();
+      expect(detailRes!.status).toBe(200);
+      expect(detailRes!.body.data.run.status).toBe('completed');
+      expect(detailRes!.body.data.run.results.length).toBeGreaterThan(0);
 
       // Verify 4-question failure explanation structure
-      const firstResult = detailRes.body.data.run.results[0];
+      const firstResult = detailRes!.body.data.run.results[0];
       expect(firstResult.explanation).toBeDefined();
       expect(firstResult.explanation.whatTested).toBeDefined();
       expect(firstResult.explanation.whatShouldHaveHappened).toBeDefined();
@@ -329,9 +337,26 @@ describe('Backend Pipeline Integration Tests (Checkpoint 2)', () => {
         .set('Authorization', `Bearer ${userAToken}`)
         .send({ suite: 'regression' });
 
-      expect(runRes.status).toBe(201);
+      expect(runRes.status).toBe(202);
       expect(runRes.body.data.run.suiteType).toBe('regression');
-      expect(runRes.body.data.run.totalTests).toBe(1);
+
+      const runId = runRes.body.data.run.id;
+
+      // Poll until regression run completes
+      let detailRes;
+      const start = Date.now();
+      while (Date.now() - start < 10000) {
+        detailRes = await request(app)
+          .get(`/api/runs/${runId}`)
+          .set('Authorization', `Bearer ${userAToken}`);
+        if (detailRes.body?.data?.run?.status === 'completed') {
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 100));
+      }
+
+      expect(detailRes!.body.data.run.status).toBe('completed');
+      expect(detailRes!.body.data.run.totalTests).toBe(1);
     });
 
     it('should prevent User B from viewing User A test runs (IDOR protection)', async () => {

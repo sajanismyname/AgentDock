@@ -10,6 +10,7 @@ import { TestResult } from '../entities/TestResult';
 import { InitDatabase1700000000000 } from '../migrations/1700000000000-InitDatabase';
 import { CreateUsersTable1700000000001 } from '../migrations/1700000000001-CreateUsersTable';
 import { CreateAgentDockCoreSchema1700000000002 } from '../migrations/1700000000002-CreateAgentDockCoreSchema';
+import { AddPendingToTestRunStatus1700000000003 } from '../migrations/1700000000003-AddPendingToTestRunStatus';
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
@@ -26,6 +27,7 @@ export const dataSourceOptions: DataSourceOptions = {
     InitDatabase1700000000000,
     CreateUsersTable1700000000001,
     CreateAgentDockCoreSchema1700000000002,
+    AddPendingToTestRunStatus1700000000003,
   ],
   subscribers: [],
 };

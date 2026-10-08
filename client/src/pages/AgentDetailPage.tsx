@@ -530,6 +530,17 @@ export const AgentDetailPage: React.FC<AgentDetailPageProps> = ({ agentId, onNav
                         <span className="text-xs text-slate-500 font-mono">
                           ({run.passedTests}/{run.totalTests} passed)
                         </span>
+                        <span
+                          className={`text-[10px] px-1.5 py-0.2 rounded font-mono uppercase border ${
+                            run.status === 'completed'
+                              ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                              : run.status === 'failed'
+                              ? 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+                              : 'bg-sky-500/10 text-sky-300 border-sky-500/30'
+                          }`}
+                        >
+                          {run.status}
+                        </span>
                       </div>
                       <span className="text-[11px] text-slate-500 font-mono">
                         {new Date(run.createdAt).toLocaleString()}

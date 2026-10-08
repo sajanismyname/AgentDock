@@ -8,7 +8,7 @@ export class RunController {
     if (!req.user) throw new UnauthorizedError('Unauthorized');
     const suiteType = (req.body?.suite || 'all') as SuiteType;
     const run = await RunService.triggerRun(req.user.id, req.params.agentId, suiteType);
-    res.status(201).json({
+    res.status(202).json({
       success: true,
       data: { run },
     });
