@@ -230,4 +230,18 @@ export class AuthService {
 
     return user.toJSON();
   }
+
+  /**
+   * Delete user account and cascade delete all associated data.
+   */
+  static async deleteAccount(userId: string): Promise<void> {
+    const userRepository = this.getUserRepository();
+    const user = await userRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    await userRepository.remove(user);
+  }
 }

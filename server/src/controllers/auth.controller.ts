@@ -129,4 +129,23 @@ export class AuthController {
       },
     });
   }
+
+  static async deleteAccount(req: Request, res: Response): Promise<void> {
+    if (!req.user) {
+      throw new UnauthorizedError('Unauthorized');
+    }
+
+    await AuthService.deleteAccount(req.user.id);
+
+    // Clear HTTP-only cookie
+    res.clearCookie(REFRESH_COOKIE_NAME, {
+      ...getRefreshCookieOptions(),
+      maxAge: 0,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Account and associated data deleted successfully',
+    });
+  }
 }

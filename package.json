@@ -1,0 +1,16 @@
+{
+  "name": "agentdock-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "build:server": "npm run build --workspace=server",
+    "build:client": "npm run build --workspace=client",
+    "build": "npm run build:server && npm run build:client",
+    "test": "npm run test --workspace=server",
+    "migration:run": "npm run migration:run --workspace=server"
+  }
+}

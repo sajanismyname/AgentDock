@@ -25,7 +25,7 @@ const envSchema = z.object({
     .transform((val) => val === 'true')
     .default('false'),
 
-  // Redis
+  // Redis / Valkey
   REDIS_HOST: z.string().default('localhost'),
   REDIS_PORT: z.coerce.number().default(6379),
   REDIS_PASSWORD: z.string().optional(),
@@ -42,6 +42,12 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
   AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().default(10),
+
+  // Agent Credential Encryption (AES-256-GCM, 32 bytes)
+  AGENT_ENCRYPTION_KEY: z
+    .string()
+    .min(32)
+    .default('agentdock-dev-encryption-key-32b-secret-min'),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
@@ -83,5 +89,6 @@ export function getSanitizedConfig(): Record<string, unknown> {
     JWT_REFRESH_EXPIRES_IN: env.JWT_REFRESH_EXPIRES_IN,
     AUTH_RATE_LIMIT_WINDOW_MS: env.AUTH_RATE_LIMIT_WINDOW_MS,
     AUTH_RATE_LIMIT_MAX: env.AUTH_RATE_LIMIT_MAX,
+    AGENT_ENCRYPTION_KEY: '********',
   };
 }
