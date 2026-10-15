@@ -4,6 +4,9 @@ import { helmetMiddleware, corsMiddleware, rateLimiterMiddleware } from './middl
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
 import { healthRouter } from './routes/health';
 import { authRouter } from './routes/auth.routes';
+import { agentRouter } from './routes/agent.routes';
+import { runRouter } from './routes/run.routes';
+import { testRouter } from './routes/test.routes';
 import { protectedExampleRouter } from './routes/protected.routes';
 
 /**
@@ -30,6 +33,11 @@ export function createApp(): Express {
 
   // Authentication endpoints
   app.use('/api/auth', authRouter);
+
+  // Agent, Rules, Tests, and TestRun endpoints
+  app.use('/api/agents', agentRouter);
+  app.use('/api/runs', runRouter);
+  app.use('/api/tests', testRouter);
 
   // Protected route example
   app.use('/api/protected', protectedExampleRouter);

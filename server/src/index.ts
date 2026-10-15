@@ -1,12 +1,18 @@
 import http from 'http';
 import { app } from './app';
-import { env, getSanitizedConfig } from './config/env';
+import { env, getSanitizedConfig, validateProductionSecrets } from './config/env';
 import { connectDatabase, disconnectDatabase } from './config/database';
 import { getRedisClient, disconnectRedis } from './config/redis';
+import { WorkerService } from './services/worker.service';
 
 let server: http.Server | null = null;
 
 async function startServer(): Promise<void> {
+  // Validate production configuration secrets before starting up
+  if (env.NODE_ENV === 'production') {
+    validateProductionSecrets(env);
+  }
+
   // eslint-disable-next-line no-console
   console.log('[Server] Starting AgentDock backend foundation...');
   // eslint-disable-next-line no-console
@@ -45,6 +51,11 @@ async function startServer(): Promise<void> {
     console.warn('[Redis] Continuing startup; health check will report degraded status.');
   }
 
+  // Start background worker loop
+  WorkerService.startWorkerLoop(400);
+  // eslint-disable-next-line no-console
+  console.log('[Worker] Worker polling loop started.');
+
   // Start HTTP listener
   server = app.listen(env.PORT, () => {
     // eslint-disable-next-line no-console
@@ -55,6 +66,8 @@ async function startServer(): Promise<void> {
   const handleShutdown = async (signal: string) => {
     // eslint-disable-next-line no-console
     console.log(`[Server] Received ${signal}. Initiating graceful shutdown...`);
+
+    WorkerService.stopWorkerLoop();
 
     if (server) {
       server.close(() => {

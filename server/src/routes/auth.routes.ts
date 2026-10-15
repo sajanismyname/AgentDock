@@ -48,4 +48,7 @@ router.post(
 // Protected user profile route
 router.get('/me', requireAuth, asyncHandler(AuthController.getMe));
 
+// User account and data deletion route
+router.delete('/account', requireAuth, asyncHandler(AuthController.deleteAccount));
+
 export const authRouter = router;
