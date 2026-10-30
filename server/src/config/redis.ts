@@ -28,11 +28,17 @@ export function getRedisClient(): Redis {
   if (!redisClient) {
     redisClient = new Redis(getRedisOptions());
 
+    let lastWarningTime = 0;
     redisClient.on('error', (err) => {
       // Safe logging: log error message only, never configuration options or credentials
       if (env.NODE_ENV !== 'test') {
-        // eslint-disable-next-line no-console
-        console.warn('[Redis] Connection warning:', err.message);
+        const now = Date.now();
+        // Throttle repeated warnings to once every 10 seconds to prevent terminal log spam
+        if (now - lastWarningTime > 10000) {
+          lastWarningTime = now;
+          // eslint-disable-next-line no-console
+          console.warn('[Redis] Connection warning:', err.message || 'Connection unreachable');
+        }
       }
     });
   }

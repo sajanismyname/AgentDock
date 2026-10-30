@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -7,8 +5,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: agentdock
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgrespassword}
+      POSTGRES_DB: ${DB_NAME:-agentdock}
     ports:
       - "5432:5432"
     volumes:
@@ -23,15 +21,22 @@ services:
     image: valkey/valkey:7.2-alpine
     container_name: agentdock-valkey
     restart: unless-stopped
+    command: valkey-server --requirepass ${REDIS_PASSWORD:-valkeypassword123}
     ports:
       - "6379:6379"
     volumes:
       - valkey_data:/data
     healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
+      test: ["CMD-SHELL", "valkey-cli -a ${REDIS_PASSWORD:-valkeypassword123} ping"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  agentdock:
+    image: agentdock
+    build:
+      context: .
+      dockerfile: ./Dockerfile
 
 volumes:
   postgres_data:

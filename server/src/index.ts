@@ -1,6 +1,6 @@
 import http from 'http';
 import { app } from './app';
-import { env, getSanitizedConfig, validateProductionSecrets } from './config/env';
+import { env, validateProductionSecrets } from './config/env';
 import { connectDatabase, disconnectDatabase } from './config/database';
 import { getRedisClient, disconnectRedis } from './config/redis';
 import { WorkerService } from './services/worker.service';
@@ -15,8 +15,6 @@ async function startServer(): Promise<void> {
 
   // eslint-disable-next-line no-console
   console.log('[Server] Starting AgentDock backend foundation...');
-  // eslint-disable-next-line no-console
-  console.log('[Server] Configuration:', JSON.stringify(getSanitizedConfig(), null, 2));
 
   // Connect to Database
   try {

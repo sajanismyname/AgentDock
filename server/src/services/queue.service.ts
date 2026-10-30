@@ -21,7 +21,7 @@ export class RunQueueService {
 
     try {
       const redis = getRedisClient();
-      if (redis.status === 'ready' || redis.status === 'connect') {
+      if (redis.status === 'ready') {
         await redis.rpush(this.QUEUE_KEY, jobString);
         return;
       }
@@ -38,7 +38,7 @@ export class RunQueueService {
   static async dequeueRunJob(): Promise<RunJobPayload | null> {
     try {
       const redis = getRedisClient();
-      if (redis.status === 'ready' || redis.status === 'connect') {
+      if (redis.status === 'ready') {
         const item = await redis.lpop(this.QUEUE_KEY);
         if (item) {
           return JSON.parse(item) as RunJobPayload;

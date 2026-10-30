@@ -1,5 +1,8 @@
 import express, { Express } from 'express';
+import path from 'path';
+import fs from 'fs';
 import cookieParser from 'cookie-parser';
+import { env } from './config/env';
 import { helmetMiddleware, corsMiddleware, rateLimiterMiddleware } from './middleware/security';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
 import { healthRouter } from './routes/health';
@@ -41,6 +44,20 @@ export function createApp(): Express {
 
   // Protected route example
   app.use('/api/protected', protectedExampleRouter);
+
+  // Serve static files from client build if present (outside of test mode)
+  const clientDistPath = path.resolve(__dirname, '../../client/dist');
+  if (env.NODE_ENV !== 'test' && fs.existsSync(clientDistPath)) {
+    app.use(express.static(clientDistPath));
+
+    // Fallback for Single Page Application client routing (non-API and non-health routes)
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api') || req.path.startsWith('/health')) {
+        return next();
+      }
+      res.sendFile(path.join(clientDistPath, 'index.html'));
+    });
+  }
 
   // 404 for unknown endpoints
   app.use(notFoundHandler);
